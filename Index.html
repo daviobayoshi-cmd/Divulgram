@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Divulgram – R$5 por indicação</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    body{margin:0;font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#1e0039,#4a00b8);color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+    .c{max-width:520px;margin:20px;background:rgba(255,255,255,0.12);backdrop-filter:blur(15px);border-radius:20px;padding:40px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.5);}
+    h1{font-size:2.8em;margin:0 0 10px;background:linear-gradient(90deg,#00ff9d,#00b894); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+    p{font-size:1.1em;}
+    input,button{width:100%;padding:16px;margin:12px 0;border-radius:14px;border:none;font-size:16px;}
+    input{background:rgba(255,255,255,0.95);color:#000;}
+    .btn{background:#00ff9d;color:#000;font-weight:bold;cursor:pointer;transition:0.3s;}
+    .btn:hover{background:#00cc7a;}
+    .link-box{background:rgba(0,0,0,0.5);padding:18px;border-radius:14px;font-size:19px;word-break:break-all;margin:25px 0;}
+    .dashboard{margin-top:40px;background:rgba(0,0,0,0.4);padding:30px;border-radius:18px;}
+    .valor{font-size:2.8em;color:#00ff9d;font-weight:bold;}
+    .proximo{background:#ffd60a;color:#000;padding:14px;border-radius:12px;font-weight:bold;margin-top:20px;font-size:1.1em;}
+  </style>
+</head>
+<body>
+<div class="c">
+  <h1>Divulgram</h1>
+  <p><strong>R$5,00 por cada indicação real</strong><br>Pagamento todo dia 1º direto no Pix</p>
+
+  <div id="cadastro">
+    <h2>Cadastre-se para começar</h2>
+    <input type="text" id="nome" placeholder="Nome completo" required>
+    <input type="text" id="cpf" placeholder="CPF (somente números)" maxlength="11" required>
+    <input type="text" id="pix" placeholder="Chave Pix (CPF, e-mail ou celular)" required>
+    <input type="text" id="whatsapp" placeholder="WhatsApp com DDD" required>
+    <button class="btn" id="btnCadastrar">CADASTRAR E GERAR MEU LINK</button>
+  </div>
+
+  <div id="principal" style="display:none;">
+    <button class="btn" id="btnAcessar">ACESSAR E GANHAR AGORA</button>
+    <p>Seu link exclusivo:</p>
+    <div class="link-box" id="meuLink">Carregando...</div>
+    <button class="btn" onclick="copiar()" style="background:#ffd60a;color:#000;margin-top:15px;">COPIAR LINK</button>
+
+    <div class="dashboard">
+      <h2>Seu Painel</h2>
+      <p>Indicações válidas: <strong id="total">0</strong></p>
+      <p class="valor">R$ <span id="ganhos">0</span>,00 acumulados</p>
+      <div class="proximo">Próximo pagamento: <strong id="proximo">1º de dezembro</strong></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==== SUAS CONFIGURAÇÕES (já tudo certo) ====
+const SUPABASE_URL = "https://izukcmksjrjpgzlvcgks.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6dWtjbWtzanJqcGd6bHZjZ2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE4NzY2NDQsImV4cCI6MjA0NzQ1MjY0NH0.InR5cCI6IkpXVCJ9";
+const LINK_DESTINO = "https://www.effectivegatecpm.com/nwp2gsb7?key=bb8c40b5f2f7d2db4b509696b8fd893b";
+const VALOR_POR_INDICACAO = 5;
+// ===========================================
+
+const { createClient } = Supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let meuCodigo = localStorage.getItem("meuCodigo");
+if (meuCodigo) { mostrarPrincipal(); }
+
+// Máscaras
+document.getElementById("cpf").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g,"").slice(0,11));
+document.getElementById("whatsapp").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g,"").slice(0,11));
+
+// Validação CPF
+function validarCPF(c) {
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let s = 0; for (let i = 0; i < 9; i++) s += +c[i] * (10 - i);
+  let r = (s * 10) % 11; if (r === 10) r = 0; if (r !== +c[9]) return false;
+  s = 0; for (let i = 0; i < 10; i++) s += +c[i] * (11 - i);
+  r = (s * 10) % 11; if (r === 10) r = 0; return r === +c[10];
+}
+
+// Cadastro
+document.getElementById("btnCadastrar").onclick = async () => {
+  const nome = document.getElementById("nome").value.trim();
+  const cpf = document.getElementById("cpf").value;
+  const pix = document.getElementById("pix").value.trim();
+  const whatsapp = document.getElementById("whatsapp").value;
+
+  if (!nome || !validarCPF(cpf) || !pix || whatsapp.length < 10) {
+    alert("Preencha todos os campos corretamente!");
+    return;
+  }
+
+  const ip = await (await fetch("https://api.ipify.org?format=json")).json().then(r => r.ip);
+
+  const { data: cpfExiste } = await supabase.from("usuarios").select("id").eq("cpf", cpf).maybeSingle();
+  const { data: ipExiste } = await supabase.from("usuarios").select("id").eq("ip", ip).maybeSingle();
+
+  if (cpfExiste || ipExiste) {
+    alert("CPF ou conexão já cadastrados! Só 1 conta por pessoa.");
+    return;
+  }
+
+  meuCodigo = "u" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  localStorage.setItem("meuCodigo", meuCodigo);
+
+  await supabase.from("usuarios").insert({codigo: meuCodigo, nome, cpf, pix, whatsapp, ip});
+
+  mostrarPrincipal();
+};
+
+function mostrarPrincipal() {
+  document.getElementById("cadastro").style.display = "none";
+  document.getElementById("principal").style.display = "block";
+  document.getElementById("meuLink").textContent = location.origin + "/" + meuCodigo;
+  carregarPainel();
+}
+
+function copiar() {
+  navigator.clipboard.writeText(location.origin + "/" + meuCodigo);
+  alert("Link copiado com sucesso!");
+}
+
+document.getElementById("btnAcessar").onclick = async () => {
+  const indicador = location.pathname.slice(1) || new URLSearchParams(location.search).get("ref");
+  if (indicador && indicador !== meuCodigo) {
+    const ip = await (await fetch("https://api.ipify.org?format=json")).json().then(r => r.ip);
+    const { data: jaTem } = await supabase.from("usuarios").select("id").eq("ip", ip).maybeSingle();
+    if (!jaTem) {
+      await supabase.from("indicacoes").insert({indicador, indicado: meuCodigo, ip_indicado: ip});
+      carregarPainel();
+    }
+  }
+  window.open(LINK_DESTINO, "_blank");
+};
+
+async function carregarPainel() {
+  const { count } = await supabase.from("indicacoes").select("*", { count: "exact", head: true }).eq("indicador", meuCodigo);
+  const total = count || 0;
+  document.getElementById("total").textContent = total;
+  document.getElementById("ganhos").textContent = total * VALOR_POR_INDICACAO;
+
+  const meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  const prox = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+  document.getElementById("proximo").textContent = `1º de ${meses[prox.getMonth()]} de ${prox.getFullYear()}`;
+}
+
+if (meuCodigo) carregarPainel();
+</script>
+</body>
+</html>
